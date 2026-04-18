@@ -1,37 +1,21 @@
-// IndexedDB Configuration
-const DB_NAME = 'ExamMarksDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'studentMarks';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, getDocs, getDoc, setDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-let db;
-
-// Initialize Database
-const initDB = () => {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = (event) => {
-            console.error('Database error:', event.target.error);
-            showStatus('Database connection failed!', 'error');
-            reject(event.target.error);
-        };
-
-        request.onsuccess = (event) => {
-            db = event.target.result;
-            loadRecords();
-            resolve(db);
-        };
-
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                // Using indexNumber as the primary key
-                const store = db.createObjectStore(STORE_NAME, { keyPath: 'indexNumber' });
-                store.createIndex('name', 'name', { unique: false });
-            }
-        };
-    });
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyABmnVxJckqpMmXJh8OFS5hUOX9sKv9JR8",
+  authDomain: "exmrst-f3ec2.firebaseapp.com",
+  projectId: "exmrst-f3ec2",
+  storageBucket: "exmrst-f3ec2.firebasestorage.app",
+  messagingSenderId: "98591691874",
+  appId: "1:98591691874:web:f963226aa502a58a04ad3b",
+  measurementId: "G-8HB6P24FVX"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const STORE_NAME = 'studentMarks';
 
 // Calculate Grade based on marks
 const getGrade = (marks) => {
@@ -67,64 +51,57 @@ const showStatus = (message, type) => {
 };
 
 // Add or Update Record
-const saveRecord = (record, isUpdate = false) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    
-    // Check if index already exists when adding new
-    if (!isUpdate) {
-        const checkRequest = store.get(record.indexNumber);
-        checkRequest.onsuccess = () => {
-            if (checkRequest.result) {
+const saveRecord = async (record, isUpdate = false) => {
+    try {
+        const docRef = doc(db, STORE_NAME, record.indexNumber);
+        
+        if (!isUpdate) {
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
                 showStatus('Index Number already exists!', 'error');
                 return;
             }
-            performSave(store, record, 'Student record saved successfully!');
-        };
-    } else {
-        performSave(store, record, 'Student record updated successfully!');
-    }
-};
-
-const performSave = (store, record, successMsg) => {
-    const request = store.put(record);
-    
-    request.onsuccess = () => {
-        showStatus(successMsg, 'success');
+        }
+        
+        await setDoc(docRef, record);
+        showStatus(isUpdate ? 'Student record updated successfully!' : 'Student record saved successfully!', 'success');
+        
         if (form.contains(document.activeElement)) form.reset();
         loadRecords();
         if (editModal.classList.contains('show')) closeModal();
-    };
-    
-    request.onerror = () => {
+    } catch (error) {
+        console.error("Error saving record: ", error);
         showStatus('Error saving record.', 'error');
-    };
+    }
 };
 
 // Delete Record
-const deleteRecord = (indexNumber) => {
+window.deleteRecord = async (indexNumber) => {
     if (confirm(`Are you sure you want to delete the record for Index: ${indexNumber}?`)) {
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.delete(indexNumber);
-        
-        request.onsuccess = () => {
+        try {
+            await deleteDoc(doc(db, STORE_NAME, indexNumber));
             showStatus('Record deleted successfully!', 'success');
             loadRecords();
-        };
+        } catch (error) {
+            console.error("Error deleting record: ", error);
+            showStatus('Error deleting record.', 'error');
+        }
     }
 };
 
 // Load and Display Records
-const loadRecords = (searchQuery = '') => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.getAll();
-    
-    request.onsuccess = () => {
-        const records = request.result;
+const loadRecords = async (searchQuery = '') => {
+    try {
+        const querySnapshot = await getDocs(collection(db, STORE_NAME));
+        const records = [];
+        querySnapshot.forEach((doc) => {
+            records.push(doc.data());
+        });
         renderTable(records, searchQuery);
-    };
+    } catch (error) {
+        console.error("Error fetching records: ", error);
+        showStatus('Error fetching records.', 'error');
+    }
 };
 
 // Render Table
@@ -196,17 +173,16 @@ searchInput.addEventListener('input', (e) => {
 
 // --- Edit Modal Logic ---
 
-window.openEditModal = (indexNumber) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(indexNumber);
-    
-    request.onsuccess = () => {
-        const record = request.result;
-        if (record) {
+window.openEditModal = async (indexNumber) => {
+    try {
+        const docRef = doc(db, STORE_NAME, indexNumber);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const record = docSnap.data();
             document.getElementById('editId').value = record.indexNumber;
             document.getElementById('editIndex').value = record.indexNumber;
-            document.getElementById('editIndex').readOnly = true; // Index cannot be changed
+            document.getElementById('editIndex').readOnly = true;
             document.getElementById('editName').value = record.name;
             document.getElementById('editMaths').value = record.maths;
             document.getElementById('editScience').value = record.science;
@@ -215,7 +191,9 @@ window.openEditModal = (indexNumber) => {
             
             editModal.classList.add('show');
         }
-    };
+    } catch (error) {
+        console.error("Error fetching record for edit: ", error);
+    }
 };
 
 const closeModal = () => {
@@ -230,7 +208,7 @@ editForm.addEventListener('submit', (e) => {
     
     const record = {
         name: document.getElementById('editName').value.trim(),
-        indexNumber: document.getElementById('editIndex').value.trim(), // keeping existing
+        indexNumber: document.getElementById('editIndex').value.trim(),
         maths: parseInt(document.getElementById('editMaths').value),
         science: parseInt(document.getElementById('editScience').value),
         english: parseInt(document.getElementById('editEnglish').value),
@@ -242,19 +220,18 @@ editForm.addEventListener('submit', (e) => {
 
 // Initialize App
 window.addEventListener('DOMContentLoaded', () => {
-    initDB();
+    loadRecords();
 });
 
 // --- Export Logic ---
 
 // Export All to Excel
-document.getElementById('exportAllExcelBtn').addEventListener('click', () => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.getAll();
-    
-    request.onsuccess = () => {
-        const records = request.result;
+document.getElementById('exportAllExcelBtn').addEventListener('click', async () => {
+    try {
+        const querySnapshot = await getDocs(collection(db, STORE_NAME));
+        const records = [];
+        querySnapshot.forEach((doc) => records.push(doc.data()));
+        
         if (records.length === 0) {
             showStatus('No records to export.', 'error');
             return;
@@ -275,29 +252,31 @@ document.getElementById('exportAllExcelBtn').addEventListener('click', () => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Students");
         XLSX.writeFile(wb, "Exam_Marks_Report.xlsx");
-    };
+    } catch (error) {
+        console.error("Error exporting to Excel: ", error);
+        showStatus('Export failed', 'error');
+    }
 });
 
 // Export All to PDF
-document.getElementById('exportAllPdfBtn').addEventListener('click', () => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.getAll();
-    
-    request.onsuccess = () => {
-        const records = request.result;
+document.getElementById('exportAllPdfBtn').addEventListener('click', async () => {
+    try {
+        const querySnapshot = await getDocs(collection(db, STORE_NAME));
+        const records = [];
+        querySnapshot.forEach((doc) => records.push(doc.data()));
+        
         if (records.length === 0) {
             showStatus('No records to export.', 'error');
             return;
         }
 
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        const docReport = new jsPDF();
 
-        doc.setFontSize(18);
-        doc.text("Exam Marks Report", 14, 22);
-        doc.setFontSize(11);
-        doc.text("Generated on: " + new Date().toLocaleDateString(), 14, 30);
+        docReport.setFontSize(18);
+        docReport.text("Exam Marks Report", 14, 22);
+        docReport.setFontSize(11);
+        docReport.text("Generated on: " + new Date().toLocaleDateString(), 14, 30);
 
         const tableColumn = ["Index No", "Name", "Maths", "Science", "English", "Tamil", "Total", "Avg"];
         const tableRows = [];
@@ -308,7 +287,7 @@ document.getElementById('exportAllPdfBtn').addEventListener('click', () => {
             tableRows.push([r.indexNumber, r.name, r.maths, r.science, r.english, r.tamil, total, avg]);
         });
 
-        doc.autoTable({
+        docReport.autoTable({
             head: [tableColumn],
             body: tableRows,
             startY: 40,
@@ -316,19 +295,21 @@ document.getElementById('exportAllPdfBtn').addEventListener('click', () => {
             headStyles: { fillColor: [99, 102, 241] }
         });
 
-        doc.save("Exam_Marks_Report.pdf");
-    };
+        docReport.save("Exam_Marks_Report.pdf");
+    } catch (error) {
+        console.error("Error exporting to PDF: ", error);
+        showStatus('Export failed', 'error');
+    }
 });
 
 // Export Individual Excel
-window.exportIndividualExcel = (indexNumber) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(indexNumber);
-    
-    request.onsuccess = () => {
-        const r = request.result;
-        if (!r) return;
+window.exportIndividualExcel = async (indexNumber) => {
+    try {
+        const docRef = doc(db, STORE_NAME, indexNumber);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) return;
+        const r = docSnap.data();
 
         const total = r.maths + r.science + r.english + r.tamil;
         const avg = (total / 4).toFixed(2);
@@ -348,35 +329,36 @@ window.exportIndividualExcel = (indexNumber) => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Student Report");
         XLSX.writeFile(wb, `Report_${r.indexNumber}.xlsx`);
-    };
+    } catch (error) {
+        console.error("Error exporting individual Excel: ", error);
+    }
 };
 
 // Export Individual PDF
-window.exportIndividualPdf = (indexNumber) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(indexNumber);
-    
-    request.onsuccess = () => {
-        const r = request.result;
-        if (!r) return;
+window.exportIndividualPdf = async (indexNumber) => {
+    try {
+        const docRef = doc(db, STORE_NAME, indexNumber);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) return;
+        const r = docSnap.data();
 
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        const docReport = new jsPDF();
 
         const total = r.maths + r.science + r.english + r.tamil;
         const avg = (total / 4).toFixed(2);
 
-        doc.setFontSize(22);
-        doc.setTextColor(99, 102, 241);
-        doc.text("Student Performance Report", 105, 30, null, null, "center");
+        docReport.setFontSize(22);
+        docReport.setTextColor(99, 102, 241);
+        docReport.text("Student Performance Report", 105, 30, null, null, "center");
 
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Name: ${r.name}`, 20, 50);
-        doc.text(`Index Number: ${r.indexNumber}`, 20, 60);
+        docReport.setFontSize(14);
+        docReport.setTextColor(0, 0, 0);
+        docReport.text(`Name: ${r.name}`, 20, 50);
+        docReport.text(`Index Number: ${r.indexNumber}`, 20, 60);
 
-        doc.autoTable({
+        docReport.autoTable({
             startY: 70,
             head: [['Subject', 'Marks', 'Grade']],
             body: [
@@ -392,20 +374,21 @@ window.exportIndividualPdf = (indexNumber) => {
             headStyles: { fillColor: [99, 102, 241] }
         });
 
-        doc.save(`Report_${r.indexNumber}.pdf`);
-    };
+        docReport.save(`Report_${r.indexNumber}.pdf`);
+    } catch (error) {
+        console.error("Error exporting individual PDF: ", error);
+    }
 };
 
 // --- Backup & Restore Logic ---
 
 // Backup Data
-document.getElementById('backupBtn').addEventListener('click', () => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.getAll();
-    
-    request.onsuccess = () => {
-        const records = request.result;
+document.getElementById('backupBtn').addEventListener('click', async () => {
+    try {
+        const querySnapshot = await getDocs(collection(db, STORE_NAME));
+        const records = [];
+        querySnapshot.forEach((doc) => records.push(doc.data()));
+        
         if (records.length === 0) {
             showStatus('No records to backup.', 'error');
             return;
@@ -422,7 +405,10 @@ document.getElementById('backupBtn').addEventListener('click', () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    };
+    } catch (error) {
+        console.error("Error backing up: ", error);
+        showStatus('Error creating backup.', 'error');
+    }
 });
 
 // Restore Data
@@ -431,36 +417,29 @@ document.getElementById('restoreInput').addEventListener('change', (e) => {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
         try {
             const records = JSON.parse(event.target.result);
             if (!Array.isArray(records)) throw new Error("Invalid format");
             
-            const transaction = db.transaction([STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(STORE_NAME);
-            
             let addedCount = 0;
+            showStatus('Restoring data to cloud...', 'success');
             
-            records.forEach(record => {
+            for (const record of records) {
                 if (record.indexNumber && record.name) {
-                    store.put(record); // put will update existing or add new
+                    await setDoc(doc(db, STORE_NAME, record.indexNumber), record);
                     addedCount++;
                 }
-            });
-
-            transaction.oncomplete = () => {
-                showStatus(`Successfully restored ${addedCount} records.`, 'success');
-                loadRecords();
-            };
+            }
             
-            transaction.onerror = () => {
-                showStatus('Error occurred during restore.', 'error');
-            };
+            showStatus(`Successfully restored ${addedCount} records to cloud.`, 'success');
+            loadRecords();
 
         } catch (err) {
-            showStatus('Invalid backup file. Please select a valid JSON backup.', 'error');
+            console.error("Restore error:", err);
+            showStatus('Invalid backup file or network error.', 'error');
         }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset input so the same file can be selected again
+    e.target.value = ''; // Reset input
 });
