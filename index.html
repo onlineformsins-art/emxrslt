@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Marks Database</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass-panel">
+            <h1><i class="fa-solid fa-graduation-cap"></i> Exam Marks Database</h1>
+            <p>Secure local storage for student examination records</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Data Entry Form -->
+            <section class="form-section glass-panel">
+                <h2><i class="fa-solid fa-user-plus"></i> Enter Student Marks</h2>
+                <form id="marksForm">
+                    <div class="input-group">
+                        <label for="studentName">Student Name</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-user"></i>
+                            <input type="text" id="studentName" required placeholder="e.g. John Doe">
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="indexNumber">Index Number</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-hashtag"></i>
+                            <input type="text" id="indexNumber" required placeholder="e.g. IDX-2026-001">
+                        </div>
+                    </div>
+
+                    <div class="subjects-grid">
+                        <div class="input-group subject">
+                            <label for="mathsMarks">Maths</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-calculator"></i>
+                                <input type="number" id="mathsMarks" min="0" max="100" required placeholder="0-100">
+                            </div>
+                        </div>
+
+                        <div class="input-group subject">
+                            <label for="scienceMarks">Science</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-flask"></i>
+                                <input type="number" id="scienceMarks" min="0" max="100" required placeholder="0-100">
+                            </div>
+                        </div>
+
+                        <div class="input-group subject">
+                            <label for="englishMarks">English</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-language"></i>
+                                <input type="number" id="englishMarks" min="0" max="100" required placeholder="0-100">
+                            </div>
+                        </div>
+
+                        <div class="input-group subject">
+                            <label for="tamilMarks">Tamil</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-book"></i>
+                                <input type="number" id="tamilMarks" min="0" max="100" required placeholder="0-100">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" id="clearBtn" class="btn btn-secondary">
+                            <i class="fa-solid fa-eraser"></i> Clear
+                        </button>
+                        <button type="submit" id="saveBtn" class="btn btn-primary">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Record
+                        </button>
+                    </div>
+                </form>
+                <div id="statusMessage" class="status-message hidden"></div>
+            </section>
+
+            <!-- Data Display Section -->
+            <section class="data-section glass-panel">
+                <div class="section-header">
+                    <h2><i class="fa-solid fa-database"></i> Student Records</h2>
+                    <div class="header-actions" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                        <button id="exportAllExcelBtn" class="btn btn-secondary" style="padding: 0.4rem 1rem; font-size: 0.9rem;" title="Export All to Excel">
+                            <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Excel
+                        </button>
+                        <button id="exportAllPdfBtn" class="btn btn-secondary" style="padding: 0.4rem 1rem; font-size: 0.9rem;" title="Export All to PDF">
+                            <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i> PDF
+                        </button>
+                        <button id="backupBtn" class="btn btn-secondary" style="padding: 0.4rem 1rem; font-size: 0.9rem;" title="Backup Data to JSON">
+                            <i class="fa-solid fa-download" style="color: #3b82f6;"></i> Backup
+                        </button>
+                        <label for="restoreInput" class="btn btn-secondary" style="padding: 0.4rem 1rem; font-size: 0.9rem; cursor: pointer; margin: 0;" title="Restore Data from JSON">
+                            <i class="fa-solid fa-upload" style="color: #f59e0b;"></i> Restore
+                        </label>
+                        <input type="file" id="restoreInput" accept=".json" class="hidden">
+                        <div class="search-bar">
+                            <i class="fa-solid fa-search"></i>
+                            <input type="text" id="searchInput" placeholder="Search by name or index...">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="recordsTable">
+                        <thead>
+                            <tr>
+                                <th>Index No</th>
+                                <th>Name</th>
+                                <th>Maths</th>
+                                <th>Science</th>
+                                <th>English</th>
+                                <th>Tamil</th>
+                                <th>Total</th>
+                                <th>Avg</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recordsBody">
+                            <!-- Data will be injected here via JS -->
+                        </tbody>
+                    </table>
+                    <div id="emptyState" class="empty-state hidden">
+                        <i class="fa-solid fa-folder-open"></i>
+                        <p>No records found. Start adding marks above!</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <h3>Edit Record</h3>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="input-group">
+                    <label>Name</label>
+                    <input type="text" id="editName" required>
+                </div>
+                <div class="input-group">
+                    <label>Index No</label>
+                    <input type="text" id="editIndex" required>
+                </div>
+                <div class="subjects-grid">
+                    <div class="input-group"><label>Maths</label><input type="number" id="editMaths" min="0" max="100" required></div>
+                    <div class="input-group"><label>Science</label><input type="number" id="editScience" min="0" max="100" required></div>
+                    <div class="input-group"><label>English</label><input type="number" id="editEnglish" min="0" max="100" required></div>
+                    <div class="input-group"><label>Tamil</label><input type="number" id="editTamil" min="0" max="100" required></div>
+                </div>
+                <div class="form-actions" style="margin-top: 1.5rem;">
+                    <button type="button" id="cancelEditBtn" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
